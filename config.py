@@ -3,7 +3,7 @@ import os
 # RAG System Configuration
 
 # Google Gemini API Configuration
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "actual_api_key")  # Replace with your actual API key or set as environment variable
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "your-actual-api")  # Replace with your actual API key or set as environment variable
 
 # Embedding Model Configuration
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # Local model

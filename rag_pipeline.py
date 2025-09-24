@@ -170,9 +170,13 @@ Provide a clear, informative response while being transparent about your informa
             source_info = []
             if search_results and return_sources:
                 source_info = [{
-                    'text': doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text'],
-                    'metadata': doc['metadata'],
-                    'similarity_score': score
+                    'content': doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text'],
+                    'filename': doc['metadata'].get('source', 'Unknown'),
+                    'page': doc['metadata'].get('page', 'N/A'),
+                    'similarity': score,
+                    'word_count': doc['metadata'].get('word_count', doc['metadata'].get('chunk_word_count', 'N/A')),
+                    'char_count': doc['metadata'].get('char_count', doc['metadata'].get('chunk_char_count', 'N/A')),
+                    'metadata': doc['metadata']
                 } for doc, score in search_results[:3]]  # Include top 3 even if low confidence
             
             return {
@@ -203,9 +207,13 @@ Provide a clear, informative response while being transparent about your informa
         for doc, similarity_score in search_results:
             context_chunks.append(doc['text'])
             source_info.append({
-                'text': doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text'],
-                'metadata': doc['metadata'],
-                'similarity_score': similarity_score
+                'content': doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text'],
+                'filename': doc['metadata'].get('source', 'Unknown'),
+                'page': doc['metadata'].get('page', 'N/A'),
+                'similarity': similarity_score,
+                'word_count': doc['metadata'].get('word_count', doc['metadata'].get('chunk_word_count', 'N/A')),
+                'char_count': doc['metadata'].get('char_count', doc['metadata'].get('chunk_char_count', 'N/A')),
+                'metadata': doc['metadata']
             })
         
         # Generate response using LLM with context
@@ -327,9 +335,13 @@ Format your response as a comprehensive answer that's more helpful to the user."
             
             # Generate response for this specific source
             source_info = [{
-                'text': doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text'],
-                'metadata': doc['metadata'],
-                'similarity_score': score
+                'content': doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text'],
+                'filename': doc['metadata'].get('source', 'Unknown'),
+                'page': doc['metadata'].get('page', 'N/A'),
+                'similarity': score,
+                'word_count': doc['metadata'].get('word_count', doc['metadata'].get('chunk_word_count', 'N/A')),
+                'char_count': doc['metadata'].get('char_count', doc['metadata'].get('chunk_char_count', 'N/A')),
+                'metadata': doc['metadata']
             } for doc, score in top_docs]
             
             response = self._generate_llm_response(question, context, source_info)

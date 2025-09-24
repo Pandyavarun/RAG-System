@@ -76,8 +76,8 @@ class RAGSystem:
             self.embedding_generator = EmbeddingGenerator()
             self.vector_store_manager = VectorStoreManager(db_type=self.vector_db_type)
             self.rag_pipeline = RAGPipeline(
-                embedding_generator=self.embedding_generator,
-                vector_store_manager=self.vector_store_manager
+                self.vector_store_manager,
+                self.embedding_generator
             )
             
             st.success(f"✅ RAG System initialized with {self.vector_db_type.upper()} vector database")
@@ -101,18 +101,38 @@ class RAGSystem:
     def process_documents(self, uploaded_files) -> bool:
         """Process uploaded documents"""
         try:
-            all_chunks = []
-            for uploaded_file in uploaded_files:
-                # Process each document
-                chunks = self.document_processor.process_file(uploaded_file)
-                all_chunks.extend(chunks)
+            all_documents = []
             
-            if all_chunks:
+            for uploaded_file in uploaded_files:
+                # Save uploaded file temporarily
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=uploaded_file.name) as tmp_file:
+                    tmp_file.write(uploaded_file.getvalue())
+                    tmp_file_path = tmp_file.name
+                
+                try:
+                    # Process the file using the document processor
+                    processed_data = self.document_processor.process_file(tmp_file_path, uploaded_file.name)
+                    documents = processed_data['documents']
+                    
+                    # Chunk the documents
+                    from document_processor import TextChunker
+                    chunker = TextChunker()
+                    chunked_documents = chunker.chunk_documents(documents)
+                    all_documents.extend(chunked_documents)
+                    
+                finally:
+                    # Clean up temporary file
+                    os.unlink(tmp_file_path)
+            
+            if all_documents:
                 # Generate embeddings and store
-                embeddings = self.embedding_generator.generate_embeddings([chunk['content'] for chunk in all_chunks])
-                self.vector_store_manager.add_documents(all_chunks, embeddings)
+                texts = [doc['text'] for doc in all_documents]
+                embeddings = self.embedding_generator.generate_embeddings(texts)
+                self.vector_store_manager.add_documents(all_documents, embeddings)
                 return True
             return False
+            
         except Exception as e:
             st.error(f"Error processing documents: {e}")
             return False
@@ -120,13 +140,11 @@ class RAGSystem:
     def query(self, question: str, similarity_threshold: float = None, top_k: int = None) -> Dict[str, Any]:
         """Query the RAG system"""
         try:
-            threshold = similarity_threshold or FALLBACK_CONFIDENCE_THRESHOLD
             k = top_k or TOP_K_RESULTS
             
             return self.rag_pipeline.query(
                 question=question,
-                top_k=k,
-                similarity_threshold=threshold
+                top_k=k
             )
         except Exception as e:
             st.error(f"Error during query: {e}")
@@ -150,7 +168,7 @@ class RAGSystem:
     def clear_database(self):
         """Clear all documents from the database"""
         try:
-            self.vector_store_manager.clear_all()
+            self.vector_store_manager.clear_database()
             return True
         except Exception as e:
             st.error(f"Error clearing database: {e}")
@@ -327,7 +345,7 @@ def main():
                                 with col4:
                                     st.metric("Characters", source.get('char_count', 'N/A'))
                                 
-                                st.text_area("Content", source.get('content', ''), height=100, disabled=True)
+                                st.text_area("Content", source.get('content', ''), height=100, disabled=True, key=f"source_content_{i}")
 
     with tab2:
         st.header("📋 System Status")
