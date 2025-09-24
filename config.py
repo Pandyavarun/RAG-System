@@ -3,14 +3,14 @@ import os
 # RAG System Configuration
 
 # Google Gemini API Configuration
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "your-api-key-here")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "actual_api_key")  # Replace with your actual API key or set as environment variable
 
 # Embedding Model Configuration
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # Local model
 # EMBEDDING_MODEL = "models/embedding-001"  # Google model (requires API key)
 
 # Vector Database Configuration
-VECTOR_DB_TYPE = "chromadb"  # Options: "chromadb", "faiss"
+VECTOR_DB_TYPE = "faiss"  # Options: "chromadb", "faiss"
 VECTOR_DB_PATH = "./vector_db"
 
 # Enhanced Chunking Configuration
@@ -43,3 +43,5 @@ ALLOWED_EXTENSIONS = ['.pdf', '.xlsx', '.xls', '.docx', '.txt']
 # UI Configuration
 PAGE_TITLE = "RAG System - Document Q&A"
 PAGE_ICON = "📚"
+
+USE_CHROMADB = False
