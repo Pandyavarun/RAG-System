@@ -1,0 +1,30 @@
+# Core dependencies
+streamlit
+langchain
+langchain-community
+langchain-google-genai
+google-generativeai
+tiktoken
+
+# Document processing
+pypdf2
+pandas
+openpyxl
+python-docx
+
+# Vector database
+chromadb
+faiss-cpu
+
+# Text processing
+sentence-transformers
+transformers
+
+# Web framework
+fastapi
+uvicorn
+
+# Utilities
+python-multipart
+aiofiles
+numpy
