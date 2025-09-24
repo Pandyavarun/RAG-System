@@ -3,7 +3,7 @@ import json
 import pickle
 from typing import List, Dict, Any, Tuple, Optional
 from abc import ABC, abstractmethod
-import chromadb
+#import chromadb
 import numpy as np
 import faiss
 import config
