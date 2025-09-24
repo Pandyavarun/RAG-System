@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import pandas as pd
 import PyPDF2
 from docx import Document
+import re
 import config
 
 class DocumentProcessor:
@@ -32,7 +33,7 @@ class DocumentProcessor:
             raise ValueError(f"Unsupported file format: {file_extension}")
     
     def _process_pdf(self, file_path: str, file_name: str) -> Dict[str, Any]:
-        """Extract text from PDF with page-level metadata"""
+        """Extract text from PDF with enhanced processing and page-level metadata"""
         documents = []
         
         with open(file_path, 'rb') as file:
@@ -40,18 +41,54 @@ class DocumentProcessor:
             
             for page_num, page in enumerate(pdf_reader.pages):
                 text = page.extract_text()
+                
+                # Enhanced text cleaning
                 if text.strip():
-                    documents.append({
-                        'text': text,
-                        'metadata': {
-                            'source': file_name,
-                            'page': page_num + 1,
-                            'type': 'pdf',
-                            'total_pages': len(pdf_reader.pages)
-                        }
-                    })
+                    # Clean up common PDF extraction artifacts
+                    text = self._clean_pdf_text(text)
+                    
+                    # Only add if text meets minimum length requirement
+                    if len(text.strip()) >= config.MIN_CHUNK_SIZE:
+                        documents.append({
+                            'text': text,
+                            'metadata': {
+                                'source': file_name,
+                                'page': page_num + 1,
+                                'type': 'pdf',
+                                'total_pages': len(pdf_reader.pages),
+                                'char_count': len(text),
+                                'word_count': len(text.split())
+                            }
+                        })
         
         return {'documents': documents, 'source_type': 'pdf'}
+    
+    def _clean_pdf_text(self, text: str) -> str:
+        """Clean PDF extracted text to improve quality"""
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Fix common PDF extraction issues
+        text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)  # Add space between words
+        text = re.sub(r'(\.)([A-Z])', r'\1 \2', text)     # Add space after periods
+        text = re.sub(r'([a-zA-Z])(\d)', r'\1 \2', text)  # Add space between letters and numbers
+        text = re.sub(r'(\d)([a-zA-Z])', r'\1 \2', text)  # Add space between numbers and letters
+        
+        # Remove page headers/footers patterns (common artifacts)
+        lines = text.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            # Skip very short lines that are likely headers/footers
+            if len(line) < 3:
+                continue
+            # Skip lines that are just page numbers or dates
+            if re.match(r'^\d+$', line) or re.match(r'^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$', line):
+                continue
+            cleaned_lines.append(line)
+        
+        return ' '.join(cleaned_lines).strip()
     
     def _process_excel(self, file_path: str, file_name: str) -> Dict[str, Any]:
         """Extract text from Excel with sheet and row metadata"""
@@ -144,7 +181,7 @@ class TextChunker:
     
     def chunk_documents(self, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Split documents into smaller chunks while preserving metadata
+        Split documents into smaller chunks with enhanced boundary detection
         """
         chunked_documents = []
         
@@ -152,58 +189,72 @@ class TextChunker:
             text = doc['text']
             metadata = doc['metadata']
             
-            # If text is smaller than chunk size, keep as is
+            # If text is smaller than chunk size, keep as is (but check minimum size)
             if len(text) <= self.chunk_size:
-                chunked_documents.append(doc)
+                if len(text.strip()) >= config.MIN_CHUNK_SIZE:
+                    chunked_documents.append(doc)
                 continue
             
-            # Split into chunks
-            chunks = self._split_text(text)
+            # Split into chunks with improved boundary detection
+            chunks = self._split_text_enhanced(text)
             
             for chunk_num, chunk in enumerate(chunks):
-                chunk_metadata = metadata.copy()
-                chunk_metadata['chunk'] = chunk_num + 1
-                chunk_metadata['total_chunks'] = len(chunks)
-                
-                chunked_documents.append({
-                    'text': chunk,
-                    'metadata': chunk_metadata
-                })
+                # Only add chunks that meet minimum size requirement
+                if len(chunk.strip()) >= config.MIN_CHUNK_SIZE:
+                    chunk_metadata = metadata.copy()
+                    chunk_metadata['chunk'] = chunk_num + 1
+                    chunk_metadata['total_chunks'] = len(chunks)
+                    chunk_metadata['chunk_char_count'] = len(chunk)
+                    chunk_metadata['chunk_word_count'] = len(chunk.split())
+                    
+                    chunked_documents.append({
+                        'text': chunk,
+                        'metadata': chunk_metadata
+                    })
         
         return chunked_documents
     
-    def _split_text(self, text: str) -> List[str]:
-        """Split text into overlapping chunks"""
+    def _split_text_enhanced(self, text: str) -> List[str]:
+        """Enhanced text splitting with better boundary detection"""
         chunks = []
         start = 0
         
         while start < len(text):
-            # Find the end of this chunk
             end = start + self.chunk_size
             
-            # If this isn't the last chunk, try to end at a sentence or word boundary
+            # If this isn't the last chunk, try to find optimal boundary
             if end < len(text):
-                # Look for sentence endings
-                for i in range(end, max(start, end - 100), -1):
-                    if text[i] in '.!?':
-                        end = i + 1
-                        break
+                # Look for paragraph boundaries first (double newline)
+                paragraph_end = text.rfind('\n\n', start, end)
+                if paragraph_end > start + self.chunk_size // 2:
+                    end = paragraph_end + 2
                 else:
-                    # Look for word boundaries
-                    for i in range(end, max(start, end - 50), -1):
-                        if text[i] == ' ':
-                            end = i
-                            break
+                    # Look for sentence endings
+                    for i in range(end, max(start, end - 200), -1):
+                        if text[i] in '.!?':
+                            # Make sure it's actually end of sentence
+                            if i + 1 < len(text) and text[i + 1] in ' \n':
+                                end = i + 1
+                                break
+                    else:
+                        # Look for word boundaries
+                        for i in range(end, max(start, end - 100), -1):
+                            if text[i] in ' \n\t':
+                                end = i
+                                break
             
             chunk = text[start:end].strip()
-            if chunk:
+            if chunk and len(chunk) >= config.MIN_CHUNK_SIZE:
                 chunks.append(chunk)
             
-            # Move start position with overlap
-            start = end - self.chunk_overlap
-            
-            # Avoid infinite loop
-            if start >= end:
-                start = end
+            # Move start position with overlap, but ensure progress
+            new_start = max(end - self.chunk_overlap, start + 1)
+            if new_start >= end:
+                break
+            start = new_start
         
         return chunks
+
+    def _split_text(self, text: str) -> List[str]:
+        """Original text splitting method (fallback)"""
+        return self._split_text_enhanced(text)

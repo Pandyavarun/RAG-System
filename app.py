@@ -129,7 +129,21 @@ def main():
             st.rerun()
         
         st.header("⚙️ Settings")
-        top_k = st.slider("Number of results", min_value=1, max_value=10, value=config.TOP_K_RESULTS)
+        
+        # Enhanced settings
+        top_k = st.slider("Number of results", min_value=1, max_value=15, value=config.TOP_K_RESULTS)
+        
+        enable_fallback = st.checkbox("Enable AI fallback for missing info", value=config.ENABLE_FALLBACK_LLM, 
+                                    help="Allow AI to answer questions even when documents don't contain sufficient information")
+        
+        if enable_fallback:
+            confidence_threshold = st.slider("Confidence threshold for fallback", 
+                                            min_value=0.0, max_value=1.0, 
+                                            value=config.FALLBACK_CONFIDENCE_THRESHOLD, step=0.1,
+                                            help="Below this confidence, AI will provide general knowledge answers")
+        
+        combine_knowledge = st.checkbox("Enhance with AI knowledge", value=config.COMBINE_RETRIEVAL_AND_LLM,
+                                      help="Combine document information with AI knowledge for richer answers")
     
     # Main content area with tabs
     tab1, tab2, tab3 = st.tabs(["📤 Upload Documents", "❓ Ask Questions", "📋 Multiple Answers"])
@@ -179,11 +193,27 @@ def main():
         with col1:
             if st.button("🔍 Get Answer", type="primary", disabled=not question):
                 if question:
+                    # Update config dynamically based on user settings
+                    config.ENABLE_FALLBACK_LLM = enable_fallback
+                    if enable_fallback:
+                        config.FALLBACK_CONFIDENCE_THRESHOLD = confidence_threshold
+                    config.COMBINE_RETRIEVAL_AND_LLM = combine_knowledge
+                    
                     with st.spinner("Searching and generating answer..."):
                         response = rag_system.query_documents(question, top_k)
                     
-                    # Display answer
+                    # Display answer with response type indicator
                     st.subheader("💡 Answer")
+                    
+                    # Show response type
+                    response_type = response.get('response_type', 'document_based')
+                    if response_type == 'llm_generated':
+                        st.info("🤖 **AI-Generated Response**: This answer is generated from the AI model's knowledge as no sufficiently relevant documents were found.")
+                    elif response_type == 'document_based':
+                        st.success("📚 **Document-Based Response**: This answer is primarily based on your uploaded documents.")
+                    elif 'enhanced' in response.get('reasoning', '').lower():
+                        st.info("🔄 **Enhanced Response**: This answer combines document information with additional AI knowledge.")
+                    
                     st.write(response['answer'])
                     
                     # Display confidence and reasoning
@@ -206,7 +236,7 @@ def main():
                                 # Display metadata
                                 metadata = source['metadata']
                                 
-                                cols = st.columns(3)
+                                cols = st.columns(4)
                                 with cols[0]:
                                     st.write(f"**File:** {metadata.get('source', 'Unknown')}")
                                 with cols[1]:
@@ -220,6 +250,12 @@ def main():
                                 with cols[2]:
                                     if 'chunk' in metadata:
                                         st.write(f"**Chunk:** {metadata['chunk']}/{metadata.get('total_chunks', '?')}")
+                                    if 'word_count' in metadata:
+                                        st.write(f"**Words:** {metadata['word_count']}")
+                                with cols[3]:
+                                    st.write(f"**Similarity:** {source['similarity_score']:.1%}")
+                                    if 'chunk_word_count' in metadata:
+                                        st.write(f"**Chunk Words:** {metadata['chunk_word_count']}")
                                 
                                 # Display text content
                                 st.write("**Content:**")
