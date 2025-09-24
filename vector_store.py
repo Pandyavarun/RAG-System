@@ -33,14 +33,8 @@ class ChromaDBVectorStore(VectorDatabase):
         # Initialize ChromaDB client
         self.client = chromadb.PersistentClient(path=persist_directory)
         
-        # Get or create collection
-        try:
-            self.collection = self.client.get_collection(collection_name)
-        except:
-            self.collection = self.client.create_collection(
-                name=collection_name,
-                metadata={"hnsw:space": "cosine"}
-            )
+        # Initialize collection using helper method
+        self._initialize_collection()
     
     def add_documents(self, documents: List[Dict[str, Any]], embeddings: List[List[float]]) -> None:
         """Add documents with embeddings to the vector store"""
@@ -74,17 +68,41 @@ class ChromaDBVectorStore(VectorDatabase):
         return documents
     
     def delete_collection(self, collection_name: str = None) -> None:
-        """Delete a collection"""
+        """Delete a collection and reinitialize"""
         if collection_name is None:
             collection_name = self.collection_name
         try:
             self.client.delete_collection(collection_name)
-        except:
+        except Exception as e:
+            # Collection might not exist, which is fine
             pass
+        
+        # Reinitialize the collection after deletion
+        self._initialize_collection()
+    
+    def _initialize_collection(self):
+        """Initialize or get collection"""
+        try:
+            self.collection = self.client.get_collection(self.collection_name)
+        except Exception:
+            # Collection doesn't exist, create it
+            self.collection = self.client.create_collection(
+                name=self.collection_name,
+                metadata={"hnsw:space": "cosine"}
+            )
     
     def get_collection_info(self) -> Dict[str, Any]:
-        """Get information about the collection"""
-        count = self.collection.count()
+        """Get information about the collection with error handling"""
+        try:
+            count = self.collection.count()
+        except Exception as e:
+            # Collection might not exist, reinitialize it
+            self._initialize_collection()
+            try:
+                count = self.collection.count()
+            except Exception:
+                count = 0
+        
         return {
             'name': self.collection_name,
             'document_count': count,
@@ -148,13 +166,20 @@ class FAISSVectorStore(VectorDatabase):
         return results
     
     def delete_collection(self, collection_name: str = None) -> None:
-        """Delete the FAISS index and metadata"""
-        if os.path.exists(self.index_path):
-            os.remove(self.index_path)
-        if os.path.exists(self.metadata_path):
-            os.remove(self.metadata_path)
+        """Delete the FAISS index and metadata, then reinitialize"""
+        try:
+            if os.path.exists(self.index_path):
+                os.remove(self.index_path)
+        except Exception:
+            pass
+            
+        try:
+            if os.path.exists(self.metadata_path):
+                os.remove(self.metadata_path)
+        except Exception:
+            pass
         
-        # Reinitialize
+        # Reinitialize empty index and documents
         self.index = faiss.IndexFlatIP(self.embedding_dim)
         self.documents = []
     
@@ -165,10 +190,15 @@ class FAISSVectorStore(VectorDatabase):
             pickle.dump(self.documents, f)
     
     def get_collection_info(self) -> Dict[str, Any]:
-        """Get information about the collection"""
+        """Get information about the collection with error handling"""
+        try:
+            document_count = len(self.documents)
+        except Exception:
+            document_count = 0
+            
         return {
             'name': 'faiss_collection',
-            'document_count': len(self.documents),
+            'document_count': document_count,
             'type': 'faiss'
         }
 
@@ -196,6 +226,8 @@ class VectorStoreManager:
     def clear_database(self) -> None:
         """Clear all data from the vector database"""
         self.vector_store.delete_collection()
+        # Force a fresh info query to update the UI immediately
+        return self.get_info()
     
     def get_info(self) -> Dict[str, Any]:
         """Get database information"""

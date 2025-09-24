@@ -106,9 +106,41 @@ def main():
         layout="wide"
     )
     
+    # Check API key before initializing
+    if not config.GOOGLE_API_KEY or config.GOOGLE_API_KEY == "your-google-api-key-here":
+        st.error("🔑 **Google API Key Required!**")
+        st.markdown("""
+        Please set your Google Gemini API key:
+        
+        **Option 1: Environment Variable (Recommended)**
+        ```bash
+        # Windows PowerShell
+        $env:GOOGLE_API_KEY="your-api-key-here"
+        
+        # Windows Command Prompt  
+        set GOOGLE_API_KEY=your-api-key-here
+        
+        # Linux/Mac
+        export GOOGLE_API_KEY="your-api-key-here"
+        ```
+        
+        **Option 2: Direct Configuration**
+        Edit `config.py` and replace the placeholder with your actual API key.
+        
+        **Get your API key**: [Google AI Studio](https://aistudio.google.com/app/apikey)
+        """)
+        st.stop()
+    
     # Initialize RAG system
-    if 'rag_system' not in st.session_state:
-        st.session_state.rag_system = RAGSystem()
+    try:
+        if 'rag_system' not in st.session_state:
+            st.session_state.rag_system = RAGSystem()
+    except ValueError as e:
+        st.error(f"🔑 **Configuration Error**: {str(e)}")
+        st.stop()
+    except Exception as e:
+        st.error(f"❌ **Initialization Error**: {str(e)}")
+        st.stop()
     
     rag_system = st.session_state.rag_system
     
@@ -119,13 +151,20 @@ def main():
     # Sidebar for configuration and database info
     with st.sidebar:
         st.header("📊 Database Info")
-        db_info = rag_system.get_database_info()
-        st.metric("Documents", db_info['document_count'])
-        st.metric("Database Type", db_info['type'].upper())
+        try:
+            db_info = rag_system.get_database_info()
+            st.metric("Documents", db_info['document_count'])
+            st.metric("Database Type", db_info['type'].upper())
+        except Exception as e:
+            st.error(f"Error accessing database: {str(e)}")
+            st.metric("Documents", "Error")
+            st.metric("Database Type", "ChromaDB")
         
         if st.button("🗑️ Clear Database", type="secondary"):
-            rag_system.clear_database()
+            with st.spinner("Clearing database..."):
+                rag_system.clear_database()
             st.success("Database cleared!")
+            # Force rerun to update the UI immediately
             st.rerun()
         
         st.header("⚙️ Settings")

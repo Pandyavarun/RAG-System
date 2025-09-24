@@ -1,7 +1,9 @@
+import os
+
 # RAG System Configuration
 
 # Google Gemini API Configuration
-GOOGLE_API_KEY = "AIzaSyDTSILO7BRCgTtgx2-tbh1N9tGngDSO_Q4"
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "your-api-key-here")
 
 # Embedding Model Configuration
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # Local model

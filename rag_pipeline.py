@@ -9,7 +9,10 @@ class RAGPipeline:
         self.vector_store = vector_store_manager
         self.embedding_generator = embedding_generator
         
-        # Initialize Google Generative AI client
+        # Initialize Google Generative AI client with validation
+        if not config.GOOGLE_API_KEY or config.GOOGLE_API_KEY == "your-google-api-key-here":
+            raise ValueError("Google API key is required. Please set GOOGLE_API_KEY environment variable or update config.py. Get your key from: https://aistudio.google.com/app/apikey")
+        
         genai.configure(api_key=config.GOOGLE_API_KEY)
         self.llm_model = config.LLM_MODEL
     

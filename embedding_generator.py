@@ -14,6 +14,8 @@ class EmbeddingGenerator:
         self.is_google_model = "models/embedding" in model_name
         
         if self.is_google_model:
+            if not config.GOOGLE_API_KEY or config.GOOGLE_API_KEY == "your-google-api-key-here":
+                raise ValueError("Google API key is required for Google embedding models. Please set GOOGLE_API_KEY environment variable or update config.py")
             genai.configure(api_key=config.GOOGLE_API_KEY)
         else:
             # Load local sentence transformer model
