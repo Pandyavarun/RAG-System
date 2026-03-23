@@ -60,6 +60,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
           # To ensure the image names use lowercase logic if needed, we pass the image name directly
           # but github.repository is usually safe. 
           script: |
