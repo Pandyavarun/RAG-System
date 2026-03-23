@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+*.sqlite3
+
+# Docker
+Dockerfile
+.dockerignore
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+vector_db/
+uploaded_files/
+tmp/
+.temp/
+.DS_Store
