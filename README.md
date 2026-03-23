@@ -345,7 +345,7 @@ For issues or questions:
 1. Check the troubleshooting section above
 2. Review configuration settings in `config.py`
 3. Ensure all dependencies are properly installed
-4. Verify your Google API key is valid and has sufficient quota
+4. Verify your Google API key is valid and has sufficient quota.
 
 ---
 
